@@ -1,0 +1,233 @@
+#! /usr/bin/env python3
+# -*- coding: utf8
+"""
+author: Thomas Wood
+email: thomas@synpon.com
+file: todo
+description: A command line TODO utility.
+"""
+
+
+import os
+import json
+from uuid import uuid4
+from datetime import datetime
+from pprint import pprint
+
+def strikethrough(txt):
+    return "\033[9m" + txt + "\033[0m"
+
+def get_todo_dict(fname=".todo_dict"):
+    fname = '/'.join([os.environ['HOME'], fname])
+    if os.path.exists(fname):
+        with open(fname, 'r') as f:
+            data = json.load(f)
+    else:
+        data = {}
+
+    return data
+
+def set_todo_dict(todo_dict, fname=".todo_dict"):
+    fname = '/'.join([os.environ['HOME'], fname])
+    with open(fname,'w') as f:
+        json.dump(todo_dict, f)
+
+def get_uid():
+    return uuid4().urn.split('-')[-2]
+
+def get_new_uid(todo_dict):
+    uid = get_uid()
+    while uid in todo_dict:
+        uid = get_uid()
+    return uid
+
+def str2date(x):
+    return datetime.strptime(x, "%Y-%m-%d")
+
+def date2str(x):
+    return datetime.strftime(x, "%Y-%m-%d")
+
+def get_datetime():
+    return date2str(datetime.now())
+
+
+def add_todo_item(todo_dict):
+    item_description = input("What is it you want to do?\n")
+    attributes = 'completed:False'
+    uid = get_new_uid(todo_dict)
+    attributes_list = [attributes,
+        '_id:{}'.format(uid),
+        'description:{}'.format(item_description),
+        'created_on:{}'.format(get_datetime())]
+    while True:
+        attributes = input('What attributes do you want this \
+item to have?\n(enter in attribute_name:attribute_value \
+format)\nPress q or Q to end.\n')
+        if attributes != 'Q' and attributes != 'q' and attributes != '':
+            attributes_list.append(attributes)
+        else:
+            break
+    item = {}
+    for attribute in attributes_list:
+        key, val = attribute.split(':')
+        item[key] = val
+
+    todo_dict[uid] = item
+    # Serialize immediately after getting all the data.
+    set_todo_dict(todo_dict)
+    return todo_dict
+
+def delete_todo_item(todo_dict, _id=None):
+    if _id is None:
+        _id = input("What is the ID of the TODO list item you want to delete?\n")
+        if _id not in todo_dict:
+            print("{} not found in TODO list.".format(_id))
+            return todo_dict
+    del todo_dict[_id]
+    set_todo_dict(todo_dict)
+
+    return todo_dict
+
+def update_todo_item(todo_dict, _id=None, attr=None, value=None):
+    if _id is None:
+        _id = input("What is the ID of the TODO list item you want to update?\n")
+        if _id not in todo_dict:
+            print("{} not found in TODO list.".format(_id))
+            return todo_dict
+
+    if attr is None:
+        attr = input("What is the attribute you wish to update?\n")
+        if attr not in todo_dict[_id]:
+            print("Attribute {} not found in TODO list item {}".format(attr, _id))
+            return todo_dict
+
+    if value is None:
+        value = input("What is the value you want for TODO[{}][{}]\n".format(_id, attr))
+
+    todo_dict[_id][attr] = value
+    set_todo_dict(todo_dict)
+
+    return todo_dict
+
+def mark_item_completed(todo_dict, _id=None, attr="completed", value="True"):
+    if _id is None:
+        _id = input("What is the ID of the TODO list item you want to mark as complete?\n")
+        if _id not in todo_dict:
+            print("{} not found in TODO list.".format(_id))
+            return todo_dict
+    return update_todo_item(todo_dict, _id=_id, attr=attr, value=value)
+
+def show_item(todo_dict, _id=None):
+    if _id is None:
+        _id = input("What is the ID of the item you want to know more about?\n")
+        if _id not in todo_dict:
+            print("{} not found in TODO list.".format(_id))
+            return
+    print()
+    print("******************************************************************")
+    print()
+    pprint(todo_dict[_id])
+    print()
+    print("******************************************************************")
+    print()
+
+def display_todo_dict(todo_dict):
+    print()
+    if todo_dict == {}:
+        print("TODO List is empty!!!")
+        print("You can start adding things to the TODO list by pressing [A]\n\
+at the selection screen!")
+        return todo_dict
+    header_string = "     Description                                                            ID  "
+    print(header_string)
+    for k, _id in enumerate(todo_dict):
+        num = str(k+1) + '.'
+        desc = todo_dict[_id]['description']
+        if todo_dict[_id]['completed'] == 'True':
+            desc = strikethrough(desc)
+            n = len(desc)
+            n_over = 78
+            if n > n_over:
+                desc = desc[:n_over-3] + '...'
+            else:
+                desc = desc + (n_over - n) * ' '
+        else:
+            n = len(desc)
+            n_over = 70
+            if n > n_over:
+                desc = desc[:n_over-3] + '...'
+            else:
+                desc = desc + (n_over - n) * ' '
+        m = len(num)
+        m_over = 4
+        if m > m_over:
+            num = '...' + num[-2:-1]
+        else:
+            num = num + (m_over - m) * ' '
+        ostr = ' '.join([num, desc, _id])
+        print(ostr)
+    print()
+
+def display_welcome_message():
+    welcome_message = "\n\
+████████╗ ██████╗     ██████╗  ██████╗ \n\
+╚══██╔══╝██╔═══██╗    ██╔══██╗██╔═══██╗\n\
+   ██║   ██║   ██║    ██║  ██║██║   ██║\n\
+   ██║   ██║   ██║    ██║  ██║██║   ██║\n\
+   ██║   ╚██████╔╝    ██████╔╝╚██████╔╝\n\
+   ╚═╝    ╚═════╝     ╚═════╝  ╚═════╝\n"
+    print(welcome_message)
+
+def get_selection(todo_dict):
+    choices = ['a', 'd', 'u', 'm', 'q', 's', 'l']
+    print("  [A]dd an item")
+    print("  [D]elete an item")
+    print("  [U]pdate an item")
+    print("  [M]ark item as completed")
+    print("  [S]how attributes for a list item")
+    print("  [L]ist all items in the TODO list")
+    print("  [Q]uit")
+    print()
+    choice = input("Make a selection\n")
+    choice = choice.lower()
+    while True:
+        if choice not in choices:
+            choice = input("Please enter one of [A, D, U, M, S, L, Q] to proceed.\n")
+            choice = choice.lower()
+        else:
+            break
+    if choice == 'a':
+        add_todo_item(todo_dict)
+    elif choice == 'd':
+        delete_todo_item(todo_dict)
+    elif choice == 'u':
+        update_todo_item(todo_dict)
+    elif choice == 'm':
+        mark_item_completed(todo_dict)
+    elif choice == 'l':
+        display_todo_dict(todo_dict)
+    elif choice == 's':
+        show_item(todo_dict)
+    else:
+        set_todo_dict(todo_dict)
+
+    return todo_dict, choice
+
+def main_loop(todo_dict):
+    todo_dict, choice = get_selection(todo_dict)
+    while True:
+        if choice == 'q':
+            break
+        else:
+            todo_dict, choice = get_selection(todo_dict)
+
+    print("Thank you for using todo!\nGoodbye.")
+
+
+
+
+if __name__ == "__main__":
+    display_welcome_message()
+    todo_dict = get_todo_dict()
+    display_todo_dict(todo_dict)
+    main_loop(todo_dict)
