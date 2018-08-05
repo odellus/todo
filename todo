@@ -17,8 +17,8 @@ from pprint import pprint
 def strikethrough(txt):
     return "\033[9m" + txt + "\033[0m"
 
-def get_todo_dict(fname=".todo_dict"):
-    fname = '/'.join([os.environ['HOME'], fname])
+def get_todo_dict(fname=".todo_dict", in_dir='.'):
+    fname = '/'.join([in_dir, fname])
     if os.path.exists(fname):
         with open(fname, 'r') as f:
             data = json.load(f)
@@ -27,8 +27,8 @@ def get_todo_dict(fname=".todo_dict"):
 
     return data
 
-def set_todo_dict(todo_dict, fname=".todo_dict"):
-    fname = '/'.join([os.environ['HOME'], fname])
+def set_todo_dict(todo_dict, fname=".todo_dict", out_dir='.'):
+    fname = '/'.join([out_dir, fname])
     with open(fname,'w') as f:
         json.dump(todo_dict, f)
 
